@@ -698,16 +698,19 @@ async function init() {
 /* ════════════════════════════════
    RENDERER & SCENE
    ════════════════════════════════ */
-// 사원증 크기를 창 비율에 맞춰 일정하게 유지.
-// 세로 화각(FOV)이 고정이라 사원증 크기는 창 높이에 비례 → 창이 넓고 짧으면(Mac/노트북) 작아 보임.
-// 비율(가로/세로)이 기준(REF_ASPECT)보다 넓을수록 카메라를 당겨(Z↓) 사원증을 키워 보정한다.
-// 거의 정사각(Windows 전체화면 등)이면 기존 거리(CFG.cameraZ) 그대로 유지.
+// 사원증을 모든 해상도/창 비율에서 "동일한 체감 크기"로 유지(fit-to-frame).
+// 카드를 담는 가상 프레임(refH×refW)을 화면에 맞추되, 가로·세로 중 더 빡빡한 쪽 기준으로
+// 카메라 거리를 정한다 → 창이 가로로 넓든 세로로 길든 카드 크기가 일정하게 보인다.
+// 기준 거리는 CFG.cameraZ(=24, 2560 모니터에서 본 이상적 크기)이며, 슬라이더로 스케일 조절 가능.
 function fitCameraZ(w, h) {
-  const REF_ASPECT = 1.1;   // 이 비율보다 좁으면(세로가 길면) 보정 없음
-  const MIN_FACTOR = 0.55;  // 최대 45%까지 당김(과도한 줌인·줄 잘림 방지)
+  const VFOV = 20 * Math.PI / 180;            // 카메라 세로 화각(고정)
+  const halfTan = Math.tan(VFOV / 2);
   const aspect = w / h;
-  const factor = Math.max(MIN_FACTOR, Math.min(1, REF_ASPECT / aspect));
-  return CFG.cameraZ * factor;
+  const refH = 2 * CFG.cameraZ * halfTan;     // 기준 거리에서 보이던 세로 월드 높이(= 카드 높이 비중의 기준)
+  const refW = refH * 0.65;                    // 카드 가로가 과도하게 커지지 않도록 보호하는 가상 프레임 폭
+  const dForHeight = CFG.cameraZ;              // 세로 기준 거리(= refH / (2·halfTan))
+  const dForWidth = refW / (2 * halfTan * aspect); // 매우 좁은 창에서 카드가 넘치지 않도록 줌아웃
+  return Math.max(dForHeight, dForWidth);
 }
 
 function setupRenderer() {
