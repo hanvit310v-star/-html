@@ -775,7 +775,7 @@ const BadgeSection = React.memo(() => {
       <div className="w-full h-[55vh] lg:h-screen lg:w-[54%] xl:w-[56%] lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-[58%] order-2 pointer-events-none lg:pointer-events-auto">
         <iframe
           ref={iframeRef}
-          src="badge.html?embed=1&v=7"
+          src="badge.html?embed=1&v=10"
           onLoad={handleIframeLoad}
           className="block w-full h-full border-0"
           title="사원증 애니메이션"
@@ -838,7 +838,7 @@ function Home() {
               onClick={(e) => scrollToSection(e, 'resume')}
               className="hover:text-white/80 transition-colors"
             >
-              Profile
+              About Me
             </a>
           </nav>
         </header>

@@ -698,6 +698,18 @@ async function init() {
 /* ════════════════════════════════
    RENDERER & SCENE
    ════════════════════════════════ */
+// 사원증 크기를 창 비율에 맞춰 일정하게 유지.
+// 세로 화각(FOV)이 고정이라 사원증 크기는 창 높이에 비례 → 창이 넓고 짧으면(Mac/노트북) 작아 보임.
+// 비율(가로/세로)이 기준(REF_ASPECT)보다 넓을수록 카메라를 당겨(Z↓) 사원증을 키워 보정한다.
+// 거의 정사각(Windows 전체화면 등)이면 기존 거리(CFG.cameraZ) 그대로 유지.
+function fitCameraZ(w, h) {
+  const REF_ASPECT = 1.1;   // 이 비율보다 좁으면(세로가 길면) 보정 없음
+  const MIN_FACTOR = 0.55;  // 최대 45%까지 당김(과도한 줌인·줄 잘림 방지)
+  const aspect = w / h;
+  const factor = Math.max(MIN_FACTOR, Math.min(1, REF_ASPECT / aspect));
+  return CFG.cameraZ * factor;
+}
+
 function setupRenderer() {
   const stage = document.getElementById('stage');
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -716,7 +728,7 @@ function setupRenderer() {
   }
 
   camera = new THREE.PerspectiveCamera(20, stage.clientWidth / stage.clientHeight, 0.1, 1000);
-  camera.position.set(0, 0, CFG.cameraZ);
+  camera.position.set(0, 0, fitCameraZ(stage.clientWidth, stage.clientHeight));
 
   RectAreaLightUniformsLib.init();
 
@@ -1270,6 +1282,7 @@ function setupEvents() {
     const stage = document.getElementById('stage');
     const w = stage.clientWidth, h = stage.clientHeight;
     camera.aspect = w / h;
+    camera.position.z = fitCameraZ(w, h);
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
     composer.setSize(w, h);
@@ -1287,19 +1300,41 @@ function updateLerped(lerped, body, dt) {
 }
 
 let prevTime = performance.now();
+// 물리 시뮬레이션을 FPS와 무관하게 실시간으로 유지하기 위한 누산기.
+// world.step()은 항상 고정 시간(1/60초)만 전진하므로, 프레임이 느린 기기(예: Retina 맥북)에서
+// 프레임당 1회만 호출하면 떨어지는 속도가 느려진다(슬로우모션). 실제 경과 시간을 모아
+// 고정 간격으로 여러 번(최대 5회) 따라잡아 어떤 사양·FPS에서도 동일한 속도로 동작하게 한다.
+const FIXED_DT = 1 / 60;
+const MAX_SUBSTEPS = 8;
+// 시뮬레이션 속도 배율. 기존에는 고주사율 모니터(예: 180Hz)에서 프레임당 1스텝씩 돌아
+// 실제보다 빠르게(180/60=3배) 떨어졌고 그 빠른 속도가 기준이 되었다.
+// 누산기로 FPS 독립성을 확보하면서도 그 "빠른 낙하" 느낌을 모든 기기에서 동일하게
+// 재현하기 위해 3배로 고정한다. (값을 키우면 더 빠르게, 줄이면 더 느리게)
+const SIM_SPEED = 3;
+let physicsAccumulator = 0;
 
 function animate() {
   requestAnimationFrame(animate);
 
   // 화면 밖이면 물리/렌더를 건너뛰어 GPU를 절약 (prevTime 갱신으로 복귀 시 점프 방지)
-  if (window.__badgePaused) { prevTime = performance.now(); return; }
+  if (window.__badgePaused) { prevTime = performance.now(); physicsAccumulator = 0; return; }
 
   const now = performance.now();
   const dt = Math.min((now - prevTime) / 1000, 0.05);
   prevTime = now;
 
   if (!world) return;
-  world.step();
+
+  // 누산기 기반 고정 타임스텝: 실제 경과 시간만큼 물리를 따라잡는다(슬로우모션 방지).
+  physicsAccumulator += dt * SIM_SPEED;
+  let substeps = 0;
+  while (physicsAccumulator >= FIXED_DT && substeps < MAX_SUBSTEPS) {
+    world.step();
+    physicsAccumulator -= FIXED_DT;
+    substeps++;
+  }
+  // 프레임이 과도하게 밀린 경우 잔여 시간을 버려 spiral of death 방지
+  if (substeps === MAX_SUBSTEPS) physicsAccumulator = 0;
 
   if (!isDragging) {
     const av = cardBody.angvel();
