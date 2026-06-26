@@ -748,7 +748,7 @@ const BadgeSection = React.memo(() => {
             <p className="border-l border-white/20 pl-5 font-sans text-base md:text-lg italic font-bold leading-relaxed tracking-wide text-white/80">
               자신이 모르고 있던 편견이나 사각지대를 인식할 때 진정한 이해가 시작된다.
             </p>
-            <div className="mt-20 space-y-4 font-sans text-base md:text-lg leading-[1.9] text-neutral-400">
+            <div className="mt-20 space-y-4 text-base md:text-lg leading-[1.9] text-neutral-400" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 400 }}>
               <p>안녕하세요, 디자이너 조한빛입니다.</p>
               <p>
                 저는 익숙함 속에 가려진 불편함을 발견하는 것에서 디자인을 시작합니다.
