@@ -738,7 +738,7 @@ const BadgeSection = React.memo(() => {
       {/* 좌측 텍스트 (슬로건 + 소개 본문) */}
       <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 lg:px-16 py-36 lg:py-48 order-1">
         <div className="max-w-md xl:max-w-xl">
-          <h2 className="font-sans font-bold leading-[1.1] tracking-tight text-white mb-6 text-[clamp(1.75rem,2.9vw,4rem)] lg:whitespace-nowrap">
+          <h2 className="font-sans font-bold leading-[1.1] tracking-tight text-white mb-6 text-[clamp(1.75rem,2.6vw,3.25rem)]">
             Where the Blind Spot
             <br />
             Becomes the Core Insight.
@@ -748,7 +748,7 @@ const BadgeSection = React.memo(() => {
             <p className="border-l border-white/20 pl-5 font-sans text-base md:text-lg italic font-bold leading-relaxed tracking-wide text-white/80">
               자신이 모르고 있던 편견이나 사각지대를 인식할 때 진정한 이해가 시작된다.
             </p>
-            <div className="mt-14 space-y-4 font-sans text-base md:text-lg leading-[1.9] text-neutral-400">
+            <div className="mt-20 space-y-4 font-sans text-base md:text-lg leading-[1.9] text-neutral-400">
               <p>안녕하세요, 디자이너 조한빛입니다.</p>
               <p>
                 저는 익숙함 속에 가려진 불편함을 발견하는 것에서 디자인을 시작합니다.
