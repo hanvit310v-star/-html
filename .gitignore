@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+
+# Temp / debug scripts
+check_dims.mjs
+check_dims_new.mjs
+check_img.ts
+check_magic.mjs
+check_mtime.mjs
+check_sizes.mjs
+check_valid.mjs
+compress.cjs
+compress_images.mjs
+compress_images2.mjs
+compress_images3.mjs
+compress_single.mjs
+metadata.json
+Design.md
