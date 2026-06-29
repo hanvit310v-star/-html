@@ -480,8 +480,17 @@ const ProjectDetail: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('');
   const [zoomMode, setZoomMode] = useState(false);
   const [showZoomHint, setShowZoomHint] = useState(true); // 활성화 전 유도 도움말
+  const [showActiveHint, setShowActiveHint] = useState(false); // 활성화 후 사용법 안내(5초)
   const [scrolled, setScrolled] = useState(false); // 탑버튼과 동일한 스크롤 임계값(400)
   const hintTimerStarted = useRef(false);
+
+  // 돋보기를 켜면 사용법 안내를 5초간 띄웠다가 자동으로 숨긴다.
+  useEffect(() => {
+    if (!zoomMode) { setShowActiveHint(false); return; }
+    setShowActiveHint(true);
+    const t = setTimeout(() => setShowActiveHint(false), 5000);
+    return () => clearTimeout(t);
+  }, [zoomMode]);
 
   // 돋보기 버튼은 탑버튼과 동일하게 일정 스크롤(400px) 이후 함께 나타난다.
   // 버튼이 처음 보이는 시점에 도움말을 띄우고, 잠시 뒤 자동으로 사라지게 한다(과하지 않게).
@@ -764,7 +773,7 @@ const ProjectDetail: React.FC = () => {
             className="fixed bottom-24 right-8 z-50 flex items-center gap-5"
           >
             <AnimatePresence mode="wait">
-              {zoomMode ? (
+              {zoomMode && showActiveHint ? (
                 <motion.span
                   key="active-hint"
                   initial={{ opacity: 0, x: 8 }}
