@@ -794,7 +794,7 @@ const ProjectDetail: React.FC = () => {
                   transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                   className="hidden sm:block max-w-[240px] text-right bg-white rounded-2xl px-4 py-3 shadow-2xl ring-1 ring-black/5 pointer-events-none"
                 >
-                  <p className="text-[13px] font-semibold text-[#1a1a1a] leading-snug">혹시 잘 안 보이시나요?</p>
+                  <p className="text-[13px] font-semibold text-[#1a1a1a] leading-snug">자세히 보고 싶으신가요?</p>
                   <p className="mt-0.5 text-[11px] text-black/50 leading-snug">이 돋보기로 확대해서 보세요</p>
                 </motion.div>
               ) : null}
