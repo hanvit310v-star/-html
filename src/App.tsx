@@ -4,10 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFloating, offset, shift, flip, arrow, FloatingPortal, autoUpdate, useHover, useInteractions, safePolygon } from '@floating-ui/react';
-import { ArrowRight, ArrowUp } from 'lucide-react';
+import { ArrowRight, ArrowUp, Search } from 'lucide-react';
 import UnicornBackground from './components/UnicornBackground';
 
 const TermTooltip = ({ term, description }: { term: string, description: React.ReactNode }) => {
@@ -252,26 +253,99 @@ const PROJECTS: Project[] = [
 ];
 
 // --- Components ---
-const PortfolioImages = React.memo(({ sections }: { sections: any[] }) => {
-  return (
-    <div className="flex-1 flex flex-col w-full max-w-[1300px]">
-      {sections.map((section: any, index: number) => (
-        <div 
-          id={`section-${section.id}`} 
-          key={section.id} 
-          className="w-full mb-0 scroll-mt-24"
-        >
-          <img 
-            src={getImageUrl(section.image)} 
-            alt={section.title} 
-            className="w-full h-auto block"
-            referrerPolicy="no-referrer"
-            decoding="async"
-            loading={index < 2 ? "eager" : "lazy"}
-            fetchPriority={index === 0 ? "high" : "auto"}
-          />
+// 돋보기 렌즈 크기(px) — 가로로 약간 긴 직사각형
+const LENS_W = 600;
+const LENS_H = 440;
+
+// 프로젝트 사진 + 돋보기(루페).
+// 돋보기 모드일 때 사진 위에 마우스를 올리면, 커서 옆에 그 지점을 확대한 렌즈가 따라다닌다.
+// 휠로 배율(1.5x~5x)을 조절하며 렌즈에 현재 배율을 표시한다.
+// 렌즈 상태는 갤러리 전체에서 단 하나만 유지 → 어떤 경우에도 렌즈가 2개 뜨지 않는다.
+const PortfolioImages = React.memo(({ sections, zoomMode }: { sections: any[]; zoomMode?: boolean }) => {
+  const [zoom, setZoom] = useState(2.5); // 돋보기 배율
+  const [active, setActive] = useState<{ src: string; relX: number; relY: number; rw: number; rh: number; cx: number; cy: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMove = (src: string) => (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!zoomMode) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setActive({ src, relX: e.clientX - r.left, relY: e.clientY - r.top, rw: r.width, rh: r.height, cx: e.clientX, cy: e.clientY });
+  };
+  const clear = () => setActive(null);
+
+  // 돋보기 모드가 꺼지면 렌즈 숨김
+  useEffect(() => { if (!zoomMode) setActive(null); }, [zoomMode]);
+
+  // 휠 배율 조절: 돋보기 모드 + 사진 위일 때만 가로채 페이지 스크롤을 막는다.
+  // (preventDefault 를 위해 passive:false 네이티브 리스너로 등록)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!zoomMode || (e.target as HTMLElement)?.tagName !== 'IMG') return;
+      e.preventDefault();
+      setZoom((z) => Math.min(5, Math.max(1.5, +(z + (e.deltaY < 0 ? 0.3 : -0.3)).toFixed(2))));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomMode]);
+
+  // 단일 렌즈 렌더
+  let lens: React.ReactNode = null;
+  if (zoomMode && active) {
+    const bgW = active.rw * zoom;
+    const bgH = active.rh * zoom;
+    const bgX = -(active.relX * zoom - LENS_W / 2);
+    const bgY = -(active.relY * zoom - LENS_H / 2);
+    // 렌즈를 커서 중앙에 둔다. bgX/bgY가 커서 지점을 렌즈 중앙에 맞추므로
+    // 확대 영역이 실제 커서 위치와 정확히 겹쳐 위치 감각이 또렷해진다(돋보기 유리 느낌).
+    const left = active.cx - LENS_W / 2;
+    const top = active.cy - LENS_H / 2;
+    lens = createPortal(
+      <div
+        className="fixed z-[100002] pointer-events-none rounded-2xl border border-white/40 shadow-2xl overflow-hidden bg-[#050505]"
+        style={{
+          left, top, width: LENS_W, height: LENS_H,
+          backgroundImage: `url("${active.src}")`,
+          backgroundSize: `${bgW}px ${bgH}px`,
+          backgroundPosition: `${bgX}px ${bgY}px`,
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/75 border border-white/10 text-white text-[11px] font-medium tabular-nums backdrop-blur">
+          {zoom.toFixed(1)}×
         </div>
-      ))}
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="flex-1 flex flex-col w-full max-w-[1300px]">
+      {sections.map((section: any, index: number) => {
+        const src = getImageUrl(section.image);
+        return (
+          <div
+            id={`section-${section.id}`}
+            key={section.id}
+            className="w-full mb-0 scroll-mt-24"
+          >
+            <img
+              src={src}
+              alt={section.title}
+              className={`w-full h-auto block ${zoomMode ? 'cursor-crosshair' : ''}`}
+              referrerPolicy="no-referrer"
+              decoding="async"
+              loading={index < 2 ? "eager" : "lazy"}
+              fetchPriority={index === 0 ? "high" : "auto"}
+              draggable={false}
+              onMouseMove={handleMove(src)}
+              onMouseLeave={clear}
+            />
+          </div>
+        );
+      })}
+      {lens}
     </div>
   );
 });
@@ -404,6 +478,26 @@ const ProjectDetail: React.FC = () => {
   const project = PROJECTS.find(p => p.id === Number(id));
   
   const [activeSection, setActiveSection] = useState<string>('');
+  const [zoomMode, setZoomMode] = useState(false);
+  const [showZoomHint, setShowZoomHint] = useState(true); // 활성화 전 유도 도움말
+  const [scrolled, setScrolled] = useState(false); // 탑버튼과 동일한 스크롤 임계값(400)
+  const hintTimerStarted = useRef(false);
+
+  // 돋보기 버튼은 탑버튼과 동일하게 일정 스크롤(400px) 이후 함께 나타난다.
+  // 버튼이 처음 보이는 시점에 도움말을 띄우고, 잠시 뒤 자동으로 사라지게 한다(과하지 않게).
+  useEffect(() => {
+    const onScroll = () => {
+      const past = window.scrollY > 400;
+      setScrolled(past);
+      if (past && !hintTimerStarted.current) {
+        hintTimerStarted.current = true;
+        setTimeout(() => setShowZoomHint(false), 10000);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const isScrolling = useRef(false);
   const scrollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -650,10 +744,74 @@ const ProjectDetail: React.FC = () => {
           </div>
           
           {/* Images Content */}
-          <PortfolioImages sections={project.portfolioSections} />
+          <PortfolioImages
+            sections={project.portfolioSections}
+            zoomMode={zoomMode}
+          />
         </div>
         </section>
       )}
+
+      {/* 돋보기(사진 확대) 버튼 — 프로젝트 페이지 전용. 탑버튼과 동일하게 스크롤 후 함께 등장. */}
+      <AnimatePresence>
+        {scrolled && (
+          <motion.div
+            key="magnifier"
+            initial={{ opacity: 0, y: 20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+            className="fixed bottom-24 right-8 z-50 flex items-center gap-5"
+          >
+            <AnimatePresence mode="wait">
+              {zoomMode ? (
+                <motion.span
+                  key="active-hint"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8 }}
+                  transition={{ duration: 0.25 }}
+                  className="hidden sm:block whitespace-nowrap text-xs tracking-wide text-white/80 bg-[#1a1a1a]/90 border border-white/10 rounded-full px-3 py-1.5 backdrop-blur pointer-events-none"
+                >
+                  사진에 마우스를 올리면 확대 · 휠로 배율 조절
+                </motion.span>
+              ) : showZoomHint ? (
+                // 활성화 전 유도 도움말 — 어두운 사이트에서 눈에 띄게 흰색 팝업, 꼬리 없음
+                <motion.div
+                  key="intro-hint"
+                  initial={{ opacity: 0, x: 8, scale: 0.96 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 8, scale: 0.96 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="hidden sm:block max-w-[240px] text-right bg-white rounded-2xl px-4 py-3 shadow-2xl ring-1 ring-black/5 pointer-events-none"
+                >
+                  <p className="text-[13px] font-semibold text-[#1a1a1a] leading-snug">혹시 잘 안 보이시나요?</p>
+                  <p className="mt-0.5 text-[11px] text-black/50 leading-snug">이 돋보기로 확대해서 보세요</p>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <div className="relative">
+              {/* 활성화 전 주의를 끄는 은은한 펄스 */}
+              {!zoomMode && showZoomHint && (
+                <span className="absolute inset-0 rounded-full bg-white/50 animate-ping pointer-events-none" />
+              )}
+              <button
+                onClick={() => { setZoomMode((v) => !v); setShowZoomHint(false); }}
+                aria-label={zoomMode ? '돋보기 모드 끄기' : '돋보기 모드 켜기'}
+                aria-pressed={zoomMode}
+                className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg ${
+                  zoomMode
+                    ? 'bg-[#1a1a1a] border border-white/40 text-white ring-2 ring-white/70'
+                    : 'bg-white border border-white/10 text-[#1a1a1a] hover:bg-white/90'
+                }`}
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -775,7 +933,7 @@ const BadgeSection = React.memo(() => {
       <div className="w-full h-[55vh] lg:h-screen lg:w-[54%] xl:w-[56%] lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-[58%] order-2 pointer-events-none lg:pointer-events-auto">
         <iframe
           ref={iframeRef}
-          src="badge.html?embed=1&v=11"
+          src="badge.html?embed=1&v=12"
           onLoad={handleIframeLoad}
           className="block w-full h-full border-0"
           title="사원증 애니메이션"
@@ -787,6 +945,34 @@ const BadgeSection = React.memo(() => {
 
 function Home() {
   const navigate = useNavigate();
+  const heroRef = useRef<HTMLElement>(null);
+
+  // 성능 최적화: 홈의 unicorn 배경은 fixed라 스크롤해도 항상 "화면 안"으로 인식돼
+  // 히어로를 벗어난 뒤(불투명 콘텐츠가 덮은 상태)에도 매 프레임 GPU 렌더링이 계속된다.
+  // 히어로가 완전히 화면 밖으로 나가면 씬을 일시정지(렌더 루프 정지)하고, 다시 들어오면 재개한다.
+  // 히어로가 보이는 동안에는 애니메이션이 100% 그대로 동작하므로 시각적 차이는 없다.
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero || typeof IntersectionObserver === 'undefined') return;
+
+    const setPaused = (paused: boolean) => {
+      const scenes = window.UnicornStudio?.scenes;
+      if (Array.isArray(scenes)) {
+        scenes.forEach((s: any) => { if (s) s.paused = paused; });
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setPaused(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(hero);
+
+    return () => {
+      observer.disconnect();
+      setPaused(false); // 정리 시 항상 재생 상태로 되돌림
+    };
+  }, []);
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
@@ -844,7 +1030,7 @@ function Home() {
         </header>
 
         {/* --- Hero Section --- */}
-        <section className="relative h-[110vh] flex flex-col items-center justify-center px-4 md:px-8 lg:px-16 text-center">
+        <section ref={heroRef} className="relative h-[110vh] flex flex-col items-center justify-center px-4 md:px-8 lg:px-16 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}

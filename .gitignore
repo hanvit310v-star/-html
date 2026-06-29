@@ -19,6 +19,7 @@ Thumbs.db
 
 # Editor
 .vscode/
+.claude/
 
 # Temp / debug scripts
 check_dims.mjs
