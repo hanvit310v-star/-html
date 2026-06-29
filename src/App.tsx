@@ -1130,7 +1130,7 @@ function Home() {
 
         {/* --- Footer --- */}
         <footer className="bg-[#020202] border-t border-white/10 py-24 px-4 text-center">
-          <div className="font-serif text-2xl mb-4">Thank you for viewing my portfolio.</div>
+          <div className="font-serif text-2xl mb-4">Thank you for your time.</div>
           <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">
             Copyright © Cho Han Vit All rights reserved.
           </div>
