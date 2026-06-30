@@ -82,17 +82,21 @@ export default React.memo(function UnicornBackground({
       }
     };
 
-    // 워터마크 강제 제거: init 직후뿐 아니라 잠시 동안 반복 스윕 + 동적 재주입 감시(MutationObserver).
-    // canvas는 보호하므로 애니메이션/동작에는 영향 없음.
+    // 워터마크 강제 제거: init 직후 반복 스윕 + 동적 주입 감시(MutationObserver).
+    // 배지는 init 직후 '한 번' 주입되므로, 감시는 임베드 컨테이너로만 좁히고(=상시 전역 스캔 방지)
+    // 10초 뒤 옵저버를 끊어 메모리/CPU 상시 점유를 없앤다. canvas는 보호하므로 애니메이션엔 영향 없음.
     killUnicornWatermark();
-    const sweeps = [150, 500, 1000, 2000, 3500].map((t) => setTimeout(killUnicornWatermark, t));
+    const sweeps = [150, 400, 800, 1500, 3000, 5000].map((t) => setTimeout(killUnicornWatermark, t));
     let rafScheduled = false;
     const watermarkObserver = new MutationObserver(() => {
       if (rafScheduled) return;
       rafScheduled = true;
       requestAnimationFrame(() => { rafScheduled = false; killUnicornWatermark(); });
     });
-    watermarkObserver.observe(document.body, { childList: true, subtree: true });
+    if (containerRef.current) {
+      watermarkObserver.observe(containerRef.current, { childList: true });
+    }
+    const stopWatermarkObserver = setTimeout(() => watermarkObserver.disconnect(), 10000);
 
     const scriptId = 'unicorn-studio-script';
     let script = document.getElementById(scriptId) as HTMLScriptElement;
@@ -113,12 +117,13 @@ export default React.memo(function UnicornBackground({
       } else {
         script.addEventListener('load', () => {
           timeoutId = setTimeout(initUnicorn, delayInit);
-        });
+        }, { once: true });
       }
     }
 
     return () => {
       clearTimeout(timeoutId);
+      clearTimeout(stopWatermarkObserver);
       sweeps.forEach(clearTimeout);
       watermarkObserver.disconnect();
       if (window.UnicornStudio && typeof window.UnicornStudio.destroy === 'function') {
