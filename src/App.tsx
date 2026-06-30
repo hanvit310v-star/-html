@@ -350,12 +350,12 @@ const PortfolioImages = React.memo(({ sections, zoomMode }: { sections: any[]; z
   );
 });
 
-// 프로젝트 "사진(Dynamic Content) 섹션"이 화면에 들어왔는지 판정 — 탑버튼/돋보기 버튼 공통 활성화 기준.
-// 사진 섹션의 윗변이 뷰포트 높이의 60% 지점까지 올라오면(=사진이 화면에 들어옴) true.
-// 사진 섹션이 없으면(예: 홈) null 반환 → 호출부가 기존 scrollY 기준으로 폴백.
-const PORTFOLIO_TRIGGER_RATIO = 0.6;
+// 탑버튼/돋보기 버튼 공통 활성화 기준.
+// 첫 프로젝트 사진의 윗변이 뷰포트 높이의 20% 지점까지 올라오면(=기여도/회고 정보를 지나
+// 사진이 화면을 채우며 "사진을 보고 있는" 지점) true. 사진이 없으면(홈) null → scrollY 폴백.
+const PORTFOLIO_TRIGGER_RATIO = 0.2;
 const isPortfolioInView = (): boolean | null => {
-  const el = document.querySelector('[data-portfolio-start]');
+  const el = document.querySelector('[data-portfolio-start] img');
   if (!el) return null;
   return el.getBoundingClientRect().top <= window.innerHeight * PORTFOLIO_TRIGGER_RATIO;
 };
@@ -491,10 +491,10 @@ const ProjectDetail: React.FC = () => {
   
   const [activeSection, setActiveSection] = useState<string>('');
   const [zoomMode, setZoomMode] = useState(false);
-  const [showZoomHint, setShowZoomHint] = useState(true); // 활성화 전 유도 도움말
+  const [showZoomHint, setShowZoomHint] = useState(false); // 유도 도움말/펄스 (버튼 등장 5초 후 발동)
   const [showActiveHint, setShowActiveHint] = useState(false); // 활성화 후 사용법 안내(5초)
-  const [scrolled, setScrolled] = useState(false); // 탑버튼과 동일한 스크롤 임계값(400)
-  const hintTimerStarted = useRef(false);
+  const [scrolled, setScrolled] = useState(false); // 프로젝트 사진 섹션 진입 여부
+  const hintDone = useRef(false); // 도움말을 이미 보여줬거나 돋보기를 누르면 다시 띄우지 않음
 
   // 돋보기를 켜면 사용법 안내를 5초간 띄웠다가 자동으로 숨긴다.
   useEffect(() => {
@@ -504,21 +504,22 @@ const ProjectDetail: React.FC = () => {
     return () => clearTimeout(t);
   }, [zoomMode]);
 
-  // 돋보기 버튼은 탑버튼과 동일하게 일정 스크롤(400px) 이후 함께 나타난다.
-  // 버튼이 처음 보이는 시점에 도움말을 띄우고, 잠시 뒤 자동으로 사라지게 한다(과하지 않게).
+  // 탑버튼·돋보기 버튼은 프로젝트 "사진"을 보고 있는 지점에 들어오면 함께 나타난다.
   useEffect(() => {
-    const onScroll = () => {
-      const past = isPortfolioInView() === true; // 프로젝트 사진 섹션이 화면에 들어오면
-      setScrolled(past);
-      if (past && !hintTimerStarted.current) {
-        hintTimerStarted.current = true;
-        setTimeout(() => setShowZoomHint(false), 10000);
-      }
-    };
+    const onScroll = () => setScrolled(isPortfolioInView() === true);
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // 버튼이 사진 영역에 들어와 나타난 뒤 5초가 지나면 도움말/펄스(마이크로 인터랙션)가 발동하고,
+  // 이후 7초간 보여준 뒤 사라진다. (한 번 보여줬거나 사용자가 돋보기를 누르면 다시 띄우지 않음)
+  useEffect(() => {
+    if (!scrolled || zoomMode || hintDone.current) return;
+    const showT = setTimeout(() => setShowZoomHint(true), 5000);
+    const hideT = setTimeout(() => { setShowZoomHint(false); hintDone.current = true; }, 12000);
+    return () => { clearTimeout(showT); clearTimeout(hideT); };
+  }, [scrolled, zoomMode]);
   const isScrolling = useRef(false);
   const scrollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -796,7 +797,7 @@ const ProjectDetail: React.FC = () => {
                 >
                   사진에 마우스를 올리면 확대 · 휠로 배율 조절
                 </motion.span>
-              ) : showZoomHint ? (
+              ) : !zoomMode && showZoomHint ? (
                 // 활성화 전 유도 도움말 — 어두운 사이트에서 눈에 띄게 흰색 팝업, 꼬리 없음
                 <motion.div
                   key="intro-hint"
@@ -818,7 +819,7 @@ const ProjectDetail: React.FC = () => {
                 <span className="absolute inset-0 rounded-full bg-white/50 animate-ping pointer-events-none" />
               )}
               <button
-                onClick={() => { setZoomMode((v) => !v); setShowZoomHint(false); }}
+                onClick={() => { setZoomMode((v) => !v); setShowZoomHint(false); hintDone.current = true; }}
                 aria-label={zoomMode ? '돋보기 모드 끄기' : '돋보기 모드 켜기'}
                 aria-pressed={zoomMode}
                 className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg ${
