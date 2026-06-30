@@ -350,6 +350,16 @@ const PortfolioImages = React.memo(({ sections, zoomMode }: { sections: any[]; z
   );
 });
 
+// 프로젝트 "사진(Dynamic Content) 섹션"이 화면에 들어왔는지 판정 — 탑버튼/돋보기 버튼 공통 활성화 기준.
+// 사진 섹션의 윗변이 뷰포트 높이의 60% 지점까지 올라오면(=사진이 화면에 들어옴) true.
+// 사진 섹션이 없으면(예: 홈) null 반환 → 호출부가 기존 scrollY 기준으로 폴백.
+const PORTFOLIO_TRIGGER_RATIO = 0.6;
+const isPortfolioInView = (): boolean | null => {
+  const el = document.querySelector('[data-portfolio-start]');
+  if (!el) return null;
+  return el.getBoundingClientRect().top <= window.innerHeight * PORTFOLIO_TRIGGER_RATIO;
+};
+
 const ScrollToTopButton = React.memo(() => {
   const [showTopBtn, setShowTopBtn] = useState(false);
   const showTopBtnRef = useRef(false);
@@ -359,7 +369,9 @@ const ScrollToTopButton = React.memo(() => {
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          const isPastThreshold = window.scrollY > 400;
+          // 프로젝트 페이지: 사진 섹션이 들어오면 / 그 외(홈): scrollY 400 기준
+          const inView = isPortfolioInView();
+          const isPastThreshold = inView === null ? window.scrollY > 400 : inView;
           if (showTopBtnRef.current !== isPastThreshold) {
             showTopBtnRef.current = isPastThreshold;
             setShowTopBtn(isPastThreshold);
@@ -496,7 +508,7 @@ const ProjectDetail: React.FC = () => {
   // 버튼이 처음 보이는 시점에 도움말을 띄우고, 잠시 뒤 자동으로 사라지게 한다(과하지 않게).
   useEffect(() => {
     const onScroll = () => {
-      const past = window.scrollY > 400;
+      const past = isPortfolioInView() === true; // 프로젝트 사진 섹션이 화면에 들어오면
       setScrolled(past);
       if (past && !hintTimerStarted.current) {
         hintTimerStarted.current = true;
@@ -683,7 +695,7 @@ const ProjectDetail: React.FC = () => {
 
       {/* Dynamic Content Section */}
       {project.portfolioSections && (
-        <section className="w-full bg-[#050505] px-4 md:px-8 lg:px-16 pt-20 md:pt-28 pb-12 relative">
+        <section data-portfolio-start className="w-full bg-[#050505] px-4 md:px-8 lg:px-16 pt-20 md:pt-28 pb-12 relative">
           <div className="flex justify-start max-w-[1600px] w-full mx-auto lg:gap-16 xl:gap-24">
             {/* TOC Sidebar */}
             <div className="hidden lg:block w-56 xl:w-64 shrink-0 relative">
