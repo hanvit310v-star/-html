@@ -15,7 +15,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hide Unicorn Studio Watermark */
-a[href*="unicorn.studio"] {
+/* Hide Unicorn Studio Watermark
+   - href 기준: 워터마크 링크를 숨김
+   - [data-us-project] a 기준: 임베드 컨테이너 안의 모든 링크(=워터마크)를 숨겨,
+     라이브러리가 href를 늦게 설정하며 잠깐 깜빡이는 현상까지 차단. (canvas는 anchor가 아니라 영향 없음) */
+a[href*="unicorn.studio"],
+[data-us-project] a {
   display: none !important;
 }
